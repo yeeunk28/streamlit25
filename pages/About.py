@@ -26,6 +26,10 @@ if 'word' not in st.session_state:
 def display_word(word, guessed):
     return ' '.join([letter if letter in guessed else '_' for letter in word])
 
+def get_letter_positions(word, letter):
+    # 위치는 1부터 시작하도록 표기
+    return [str(i+1) for i, l in enumerate(word) if l == letter]
+
 def reset_game():
     st.session_state.word = random.choice(WORD_LIST)
     st.session_state.guessed = []
@@ -55,7 +59,8 @@ if st.button("제출"):
             st.session_state.tries_left -= 1
             st.session_state.message = f"❌ '{guess}'는 단어에 없어요!"
         else:
-            st.session_state.message = f"✅ 잘했어요! '{guess}'는 단어에 있어요!"
+            positions = get_letter_positions(st.session_state.word, guess.lower())
+            st.session_state.message = f"✅ 잘했어요! '{guess}'는 단어에 있어요!\n📍 위치: {', '.join(positions)}번 글자"
 
 # ------------------- 게임 상태 확인 -------------------
 
@@ -70,4 +75,5 @@ elif st.session_state.tries_left == 0:
     st.error(f"😢 실패! 정답은 '{st.session_state.word}' 였어요.")
     if st.button("🔁 다시 시작하기"):
         reset_game()
+
 
