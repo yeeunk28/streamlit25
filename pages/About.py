@@ -72,50 +72,70 @@ def start_new_game(words):
     return word, [], MAX_TRIES, ""
 
 def main():
-    st.title("🎮 Hangman Game!")
-    
+    st.title("🎮 Hangman Game & Word Review")
+
     words = load_words(CSV_PATH)
-    
+
+    # 세션 상태 초기화
     if 'word' not in st.session_state:
         st.session_state.word, st.session_state.guessed, st.session_state.tries_left, st.session_state.message = start_new_game(words)
-    
-    # 인덱스 범위 안전 처리
-    index = MAX_TRIES - st.session_state.tries_left
-    index = max(0, min(index, len(HANGMAN_PICS) - 1))
-    st.text(HANGMAN_PICS[index])
-    
-    st.write(f"Word: {display_word(st.session_state.word, st.session_state.guessed)}")
-    st.write(f"Tries left: {st.session_state.tries_left}")
-    st.write(f"Guessed letters: {', '.join(st.session_state.guessed)}")
-    st.write(st.session_state.message)
-    
-    with st.form(key='guess_form'):
-        letter = st.text_input("Guess a letter (a-z):", max_chars=1).lower()
-        submit_button = st.form_submit_button(label='Submit')
-    
-    if submit_button:
-        if len(letter) != 1 or not letter.isalpha():
-            st.session_state.message = "❗ Please enter a single alphabet letter."
-        elif letter in st.session_state.guessed:
-            st.session_state.message = f"You already guessed '{letter}'."
-        else:
-            st.session_state.guessed.append(letter)
-            if letter in st.session_state.word:
-                positions = [str(i+1) for i, l in enumerate(st.session_state.word) if l == letter]
-                st.session_state.message = f"✅ Correct! Letter '{letter}' is at position(s): {', '.join(positions)}."
-            else:
-                st.session_state.tries_left -= 1
-                if st.session_state.tries_left < 0:
-                    st.session_state.tries_left = 0
-                st.session_state.message = f"❌ Wrong! Letter '{letter}' is not in the word."
+        st.session_state.wrong_words = []
 
-        if all(l in st.session_state.guessed for l in st.session_state.word):
-            st.success(f"🎉 You won! The word was '{st.session_state.word}'.")
-        elif st.session_state.tries_left == 0:
-            st.error(f"😢 Game Over! The word was '{st.session_state.word}'.")
-    
-    if st.button("Restart Game"):
-        st.session_state.word, st.session_state.guessed, st.session_state.tries_left, st.session_state.message = start_new_game(words)
+    tabs = st.tabs(["Hangman Game", "Wrong Words Review"])
+
+    with tabs[0]:
+        # 행맨 게임 탭
+        index = MAX_TRIES - st.session_state.tries_left
+        index = max(0, min(index, len(HANGMAN_PICS) - 1))
+        st.text(HANGMAN_PICS[index])
+
+        st.write(f"Word: {display_word(st.session_state.word, st.session_state.guessed)}")
+        st.write(f"Tries left: {st.session_state.tries_left}")
+        st.write(f"Guessed letters: {', '.join(st.session_state.guessed)}")
+        st.write(st.session_state.message)
+
+        with st.form(key='guess_form'):
+            letter = st.text_input("Guess a letter (a-z):", max_chars=1).lower()
+            submit_button = st.form_submit_button(label='Submit')
+
+        if submit_button:
+            if len(letter) != 1 or not letter.isalpha():
+                st.session_state.message = "❗ Please enter a single alphabet letter."
+            elif letter in st.session_state.guessed:
+                st.session_state.message = f"You already guessed '{letter}'."
+            else:
+                st.session_state.guessed.append(letter)
+                if letter in st.session_state.word:
+                    positions = [str(i+1) for i, l in enumerate(st.session_state.word) if l == letter]
+                    st.session_state.message = f"✅ Correct! Letter '{letter}' is at position(s): {', '.join(positions)}."
+                else:
+                    st.session_state.tries_left -= 1
+                    if st.session_state.tries_left < 0:
+                        st.session_state.tries_left = 0
+                    st.session_state.message = f"❌ Wrong! Letter '{letter}' is not in the word."
+
+            # 게임 종료 조건 체크
+            if all(l in st.session_state.guessed for l in st.session_state.word):
+                st.success(f"🎉 You won! The word was '{st.session_state.word}'.")
+                # 틀린 단어 기록 초기화 (승리 후 다시 시작 시)
+                st.session_state.wrong_words = []
+            elif st.session_state.tries_left == 0:
+                st.error(f"😢 Game Over! The word was '{st.session_state.word}'.")
+                # 틀린 단어 리스트에 저장 (게임 끝난 단어)
+                if st.session_state.word not in st.session_state.wrong_words:
+                    st.session_state.wrong_words.append(st.session_state.word)
+
+        if st.button("Restart Game"):
+            st.session_state.word, st.session_state.guessed, st.session_state.tries_left, st.session_state.message = start_new_game(words)
+
+    with tabs[1]:
+        # 틀린 단어 복습 탭
+        st.header("📚 Review Your Wrong Words")
+        if st.session_state.wrong_words:
+            for w in st.session_state.wrong_words:
+                st.write(f"- **{w}**")
+        else:
+            st.write("You haven't missed any words yet! Keep playing the game to see wrong words here.")
 
 if __name__ == "__main__":
     main()
