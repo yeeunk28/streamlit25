@@ -1,103 +1,141 @@
 import streamlit as st
-import pandas as pd
-from gtts import gTTS
-from io import BytesIO
 import random
+import pandas as pd
 
-st.write("🌱 Vocabulary learning")
+CSV_PATH = "data/word_frequency (1).csv"
+MAX_TRIES = 6
 
-tab1, tab2, tab3, tab4 = st.tabs(["❄️ 1. Lesson: Word list", "❄️ 2. Activity: Listen to the word", "❄️ 3. Spelling practice", "❄️ 4. TBA"])
+HANGMAN_PICS = [
+    ''' +---+
+  |   |
+      |
+      |
+      |
+      |
+=========''', 
+    ''' +---+
+  |   |
+  O   |
+      |
+      |
+      |
+=========''', 
+    ''' +---+
+  |   |
+  O   |
+  |   |
+      |
+      |
+=========''', 
+    ''' +---+
+  |   |
+  O   |
+ /|   |
+      |
+      |
+=========''', 
+    ''' +---+
+  |   |
+  O   |
+ /|\\  |
+      |
+      |
+=========''', 
+    ''' +---+
+  |   |
+  O   |
+ /|\\  |
+ /    |
+      |
+=========''', 
+    ''' +---+
+  |   |
+  O   |
+ /|\\  |
+ / \\  |
+      |
+========='''
+]
 
-######### TAB 1
+def load_words(csv_path):
+    df = pd.read_csv(csv_path)
+    first_col = df.columns[0]
+    words = df[first_col].dropna().astype(str).tolist()
+    words = [w.lower() for w in words if w.isalpha()]
+    return words
 
+def display_word(word, guessed):
+    return ' '.join([letter if letter in guessed else '_' for letter in word])
 
-with tab1:
-  st.markdown("### 📋 Word Frequency Table")
+def start_new_game(words):
+    word = random.choice(words)
+    return word, [], MAX_TRIES, ""
 
-   # Load CSV from GitHub (update the link below)
-  url = "https://github.com/yeeunk28/streamlit25/raw/main/data/word_frequency%20(1).csv"
-  df = pd.read_csv(url)
+def main():
+    st.title("🎮 Hangman Game & Word Review")
 
-    # Show table only when button is clicked
-  if st.button("Show Word List"):
-     st.dataframe(df, use_container_width=True)
+    words = load_words(CSV_PATH)
 
+    # 세션 상태 초기화
+    if 'word' not in st.session_state:
+        st.session_state.word, st.session_state.guessed, st.session_state.tries_left, st.session_state.message = start_new_game(words)
+        st.session_state.wrong_words = []
 
-######### TAB 2 
+    tabs = st.tabs(["Hangman Game", "Wrong Words Review"])
 
-with tab2:
+    with tabs[0]:
+        # 행맨 게임 탭
+        index = MAX_TRIES - st.session_state.tries_left
+        index = max(0, min(index, len(HANGMAN_PICS) - 1))
+        st.text(HANGMAN_PICS[index])
 
-  st.title("🔊 Word Pronunciation Practice")
-  
-  # --- Load CSV from GitHub ---
+        st.write(f"Word: {display_word(st.session_state.word, st.session_state.guessed)}")
+        st.write(f"Tries left: {st.session_state.tries_left}")
+        st.write(f"Guessed letters: {', '.join(st.session_state.guessed)}")
+        st.write(st.session_state.message)
 
-  url = "https://github.com/yeeunk28/streamlit25/raw/main/data/word_frequency%20(1).csv"  # ← replace this!
-  df = pd.read_csv(url)
-  
-  # --- Dropdown to select word ---
-  st.markdown("## Select a word to hear its pronunciation")
-  selected_word = st.selectbox("Choose a word:", df["Word"].dropna().unique())
-  
-  # --- Generate and play audio ---
-  if selected_word:
-      tts = gTTS(selected_word, lang='en')
-      audio_fp = BytesIO()
-      tts.write_to_fp(audio_fp)
-      audio_fp.seek(0)
-      st.audio(audio_fp, format='audio/mp3')
+        with st.form(key='guess_form'):
+            letter = st.text_input("Guess a letter (a-z):", max_chars=1).lower()
+            submit_button = st.form_submit_button(label='Submit')
 
+        if submit_button:
+            if len(letter) != 1 or not letter.isalpha():
+                st.session_state.message = "❗ Please enter a single alphabet letter."
+            elif letter in st.session_state.guessed:
+                st.session_state.message = f"You already guessed '{letter}'."
+            else:
+                st.session_state.guessed.append(letter)
+                if letter in st.session_state.word:
+                    positions = [str(i+1) for i, l in enumerate(st.session_state.word) if l == letter]
+                    st.session_state.message = f"✅ Correct! Letter '{letter}' is at position(s): {', '.join(positions)}."
+                else:
+                    st.session_state.tries_left -= 1
+                    if st.session_state.tries_left < 0:
+                        st.session_state.tries_left = 0
+                    st.session_state.message = f"❌ Wrong! Letter '{letter}' is not in the word."
 
-######### TAB 3
+            # 게임 종료 조건 체크
+            if all(l in st.session_state.guessed for l in st.session_state.word):
+                st.success(f"🎉 You won! The word was '{st.session_state.word}'.")
+                # 틀린 단어 기록 초기화 (승리 후 다시 시작 시)
+                st.session_state.wrong_words = []
+            elif st.session_state.tries_left == 0:
+                st.error(f"😢 Game Over! The word was '{st.session_state.word}'.")
+                # 틀린 단어 리스트에 저장 (게임 끝난 단어)
+                if st.session_state.word not in st.session_state.wrong_words:
+                    st.session_state.wrong_words.append(st.session_state.word)
 
-with tab3:
-    st.markdown("### 🎧 Listen and Type the Word")
-    st.caption("Click the button to hear a word. Then type it and press 'Check the answer'.")
+        if st.button("Restart Game"):
+            st.session_state.word, st.session_state.guessed, st.session_state.tries_left, st.session_state.message = start_new_game(words)
 
-    # Load CSV
-    url = "https://raw.githubusercontent.com/MK316/Digital-Literacy-Class/refs/heads/main/data/word_frequency.csv"  # Replace this!
-    df = pd.read_csv(url)
-    word_list = df["Word"].dropna().tolist()
-
-    # Initialize session state variables
-    if "current_word" not in st.session_state:
-        st.session_state.current_word = None
-    if "audio_data" not in st.session_state:
-        st.session_state.audio_data = None
-    if "user_input" not in st.session_state:
-        st.session_state.user_input = ""
-    if "check_clicked" not in st.session_state:
-        st.session_state.check_clicked = False
-
-    # ▶️ Button to select and play a new random word
-    if st.button("🔊 Let me listen to a word"):
-        st.session_state.current_word = random.choice(word_list)
-        st.session_state.user_input = ""
-        st.session_state.check_clicked = False
-
-        tts = gTTS(st.session_state.current_word, lang='en')
-        audio_fp = BytesIO()
-        tts.write_to_fp(audio_fp)
-        audio_fp.seek(0)
-        st.session_state.audio_data = audio_fp.read()
-
-    # 🎧 Audio playback
-    if st.session_state.audio_data:
-        st.audio(st.session_state.audio_data, format='audio/mp3')
-
-    # ✏️ Text input
-    st.session_state.user_input = st.text_input("Type the word you heard:", value=st.session_state.user_input)
-
-    # ✅ Check answer button
-    if st.button("✅ Check the answer"):
-        st.session_state.check_clicked = True
-
-    # 💬 Give feedback only after clicking the check button
-    if st.session_state.check_clicked and st.session_state.current_word:
-        if st.session_state.user_input.strip().lower() == st.session_state.current_word.lower():
-            st.success("✅ Correct!")
+    with tabs[1]:
+        # 틀린 단어 복습 탭
+        st.header("📚 Review Your Wrong Words")
+        if st.session_state.wrong_words:
+            for w in st.session_state.wrong_words:
+                st.write(f"- **{w}**")
         else:
-            st.error("❌ Try again.")
+            st.write("You haven't missed any words yet! Keep playing the game to see wrong words here.")
 
-######### TAB 4
-with tab4:
-  st.caption("나중에 만들게 :)")
+if __name__ == "__main__":
+    main()
