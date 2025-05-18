@@ -1,82 +1,144 @@
-import streamlit as st
-import pandas as pd
+import gradio as gr
 import random
-import os
+import pandas as pd
 
-# ----------------- 설정 -----------------
 CSV_PATH = "data/word_frequency (1).csv"
 MAX_TRIES = 6
 
-# ----------------- 데이터 로드 -----------------
-@st.cache_data
+HANGMAN_PICS = [
+    ''' +---+
+  |   |
+      |
+      |
+      |
+      |
+=========''',
+    ''' +---+
+  |   |
+  O   |
+      |
+      |
+      |
+=========''',
+    ''' +---+
+  |   |
+  O   |
+  |   |
+      |
+      |
+=========''',
+    ''' +---+
+  |   |
+  O   |
+ /|   |
+      |
+      |
+=========''',
+    ''' +---+
+  |   |
+  O   |
+ /|\\  |
+      |
+      |
+=========''',
+    ''' +---+
+  |   |
+  O   |
+ /|\\  |
+ /    |
+      |
+=========''',
+    ''' +---+
+  |   |
+  O   |
+ /|\\  |
+ / \\  |
+      |
+========='''
+]
+
 def load_words(csv_path):
     df = pd.read_csv(csv_path)
-
-    # 첫 번째 컬럼 이름 가져오기
     first_col = df.columns[0]
-    st.info(f"📄 단어는 CSV의 '{first_col}' 컬럼에서 불러왔어요.")
-
     return df[first_col].dropna().astype(str).tolist()
 
 WORD_LIST = load_words(CSV_PATH)
 
-if not WORD_LIST:
-    st.error("❗ 단어 리스트를 불러오지 못했습니다.")
-    st.stop()
+# 게임 상태 초기화 함수
+def new_game():
+    word = random.choice(WORD_LIST).lower()
+    guessed = []
+    tries_left = MAX_TRIES
+    message = ""
+    return word, guessed, tries_left, message
 
-# ----------------- 세션 상태 초기화 -----------------
-if 'word' not in st.session_state:
-    st.session_state.word = random.choice(WORD_LIST).lower()
-    st.session_state.guessed = []
-    st.session_state.tries_left = MAX_TRIES
-    st.session_state.message = ""
-
-# ----------------- 함수 정의 -----------------
+# 단어 화면에 표시할 때 밑줄과 맞춘 글자 보여주기
 def display_word(word, guessed):
     return ' '.join([letter if letter in guessed else '_' for letter in word])
 
-def get_letter_positions(word, letter):
-    return [str(i + 1) for i, l in enumerate(word) if l == letter]
+# 한 글자 입력해서 게임 진행하는 함수
+def guess_letter(letter, word, guessed, tries_left, message):
+    letter = letter.lower()
+    if len(letter) != 1 or not letter.isalpha():
+        message = "❗ Please enter a single alphabet letter."
+        return word, guessed, tries_left, message, display_word(word, guessed), HANGMAN_PICS[MAX_TRIES - tries_left]
+    if letter in guessed:
+        message = f"You already guessed '{letter}'."
+        return word, guessed, tries_left, message, display_word(word, guessed), HANGMAN_PICS[MAX_TRIES - tries_left]
 
-def reset_game():
-    st.session_state.word = random.choice(WORD_LIST).lower()
-    st.session_state.guessed = []
-    st.session_state.tries_left = MAX_TRIES
-    st.session_state.message = ""
-
-# ----------------- UI -----------------
-st.title("🎮 영어 단어 Hangman 게임")
-st.write("CSV 파일에서 단어를 불러와서 행맨 게임을 해보세요!")
-
-st.write(f"단어: {display_word(st.session_state.word, st.session_state.guessed)}")
-st.write(f"남은 시도: {st.session_state.tries_left}번")
-
-# ----------------- 입력 -----------------
-guess = st.text_input("알파벳을 입력하세요 (a-z):", max_chars=1)
-
-if st.button("제출"):
-    if not guess.isalpha() or len(guess) != 1:
-        st.warning("❗ 알파벳 한 글자를 입력해주세요.")
-    elif guess.lower() in st.session_state.guessed:
-        st.info("이미 입력한 알파벳이에요.")
+    guessed.append(letter)
+    if letter not in word:
+        tries_left -= 1
+        message = f"❌ '{letter}' is not in the word."
     else:
-        st.session_state.guessed.append(guess.lower())
-        if guess.lower() not in st.session_state.word:
-            st.session_state.tries_left -= 1
-            st.session_state.message = f"❌ '{guess}'는 단어에 없어요!"
-        else:
-            positions = get_letter_positions(st.session_state.word, guess.lower())
-            st.session_state.message = f"✅ 잘했어요! '{guess}'는 {', '.join(positions)}번째 글자에 있어요."
+        positions = [str(i + 1) for i, l in enumerate(word) if l == letter]
+        message = f"✅ Good job! '{letter}' is in position(s): {', '.join(positions)}."
 
-st.write(st.session_state.message)
+    current_display = display_word(word, guessed)
+    hangman_pic = HANGMAN_PICS[MAX_TRIES - tries_left]
 
-# ----------------- 게임 종료 -----------------
-if all(letter in st.session_state.guessed for letter in st.session_state.word):
-    st.success(f"🎉 정답입니다! 단어는 '{st.session_state.word}' 였어요.")
-    if st.button("🔁 다시 시작하기"):
-        reset_game()
+    if all(l in guessed for l in word):
+        message = f"🎉 Congratulations! The word was '{word}'."
+    elif tries_left == 0:
+        message = f"😢 Game Over! The word was '{word}'."
 
-elif st.session_state.tries_left == 0:
-    st.error(f"😢 실패! 정답은 '{st.session_state.word}' 였어요.")
-    if st.button("🔁 다시 시작하기"):
-        reset_game()
+    return word, guessed, tries_left, message, current_display, hangman_pic
+
+# 재시작 버튼 함수
+def restart_game():
+    return new_game() + ("", display_word(*new_game()[:2]), HANGMAN_PICS[0])
+
+with gr.Blocks() as demo:
+    word, guessed, tries_left, message = new_game()
+
+    word_state = gr.State(word)
+    guessed_state = gr.State(guessed)
+    tries_state = gr.State(tries_left)
+    message_state = gr.State(message)
+
+    gr.Markdown("## 🎮 English Word Hangman Game (Gradio)")
+    hangman_display = gr.Textbox(value=HANGMAN_PICS[0], interactive=False, lines=7)
+    word_display = gr.Textbox(value=display_word(word, guessed), interactive=False)
+    tries_display = gr.Text(f"Tries left: {tries_left}")
+    message_display = gr.Textbox(value=message, interactive=False)
+
+    letter_input = gr.Textbox(label="Enter a letter (a-z):", max_chars=1)
+    submit_btn = gr.Button("Submit")
+    restart_btn = gr.Button("Restart Game")
+
+    def update_ui(letter, word, guessed, tries_left, message):
+        return guess_letter(letter, word, guessed, tries_left, message)
+
+    submit_btn.click(
+        update_ui,
+        inputs=[letter_input, word_state, guessed_state, tries_state, message_state],
+        outputs=[word_state, guessed_state, tries_state, message_state, word_display, hangman_display]
+    )
+
+    restart_btn.click(
+        restart_game,
+        inputs=[],
+        outputs=[word_state, guessed_state, tries_state, message_state, word_display, hangman_display]
+    )
+
+demo.launch()
