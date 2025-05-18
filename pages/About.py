@@ -79,6 +79,7 @@ def main():
     # 세션 상태 초기화
     if 'word' not in st.session_state:
         st.session_state.word, st.session_state.guessed, st.session_state.tries_left, st.session_state.message = start_new_game(words)
+    if 'wrong_words' not in st.session_state:
         st.session_state.wrong_words = []
 
     tabs = st.tabs(["Hangman Game", "Wrong Words Review"])
