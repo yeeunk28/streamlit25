@@ -72,14 +72,18 @@ def start_new_game(words):
     return word, [], MAX_TRIES, ""
 
 def main():
-    st.title("🎮 Hangman Game with Streamlit")
+    st.title("🎮 Hangman Game!")
     
     words = load_words(CSV_PATH)
     
     if 'word' not in st.session_state:
         st.session_state.word, st.session_state.guessed, st.session_state.tries_left, st.session_state.message = start_new_game(words)
     
-    st.text(HANGMAN_PICS[MAX_TRIES - st.session_state.tries_left])
+    # 인덱스 범위 안전 처리
+    index = MAX_TRIES - st.session_state.tries_left
+    index = max(0, min(index, len(HANGMAN_PICS) - 1))
+    st.text(HANGMAN_PICS[index])
+    
     st.write(f"Word: {display_word(st.session_state.word, st.session_state.guessed)}")
     st.write(f"Tries left: {st.session_state.tries_left}")
     st.write(f"Guessed letters: {', '.join(st.session_state.guessed)}")
@@ -101,6 +105,8 @@ def main():
                 st.session_state.message = f"✅ Correct! Letter '{letter}' is at position(s): {', '.join(positions)}."
             else:
                 st.session_state.tries_left -= 1
+                if st.session_state.tries_left < 0:
+                    st.session_state.tries_left = 0
                 st.session_state.message = f"❌ Wrong! Letter '{letter}' is not in the word."
 
         if all(l in st.session_state.guessed for l in st.session_state.word):
