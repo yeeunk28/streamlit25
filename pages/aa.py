@@ -1,7 +1,7 @@
 import streamlit as st
 import random
 
-st.title("📚 영어 속담 퀴즈 + 복습")
+st.title("속담 퀴즈 + 복습")
 
 idioms = {
     "Break the ice": "긴장을 풀다, 분위기를 부드럽게 만들다",
@@ -59,18 +59,12 @@ with tabs[0]:
     else:
         col1, col2 = st.columns(2)
 
-        if st.button("다음 문제"):
-            st.session_state.next_question = True
-
-        if st.session_state.get("next_question", False):
+        if col1.button("다음 문제"):
             new_question()
-            st.session_state.next_question = False
-            st.experimental_rerun()
 
-        if st.button("게임 재시작"):
+        if col2.button("게임 재시작"):
             st.session_state.wrong_idioms = {}
             new_question()
-            st.experimental_rerun()
 
 with tabs[1]:
     st.header("틀린 속담 복습")
@@ -80,6 +74,5 @@ with tabs[1]:
             st.markdown(f"**{idiom}**: {meaning}")
         if st.button("틀린 속담 초기화"):
             st.session_state.wrong_idioms = {}
-            st.experimental_rerun()
     else:
         st.write("아직 틀린 속담이 없습니다. 퀴즈를 풀어보세요!")
