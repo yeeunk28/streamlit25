@@ -1,8 +1,9 @@
 import streamlit as st
 import random
 
-st.title("📚 영어 속담 & 관용구 학습과 퀴즈")
+st.title("📚 영어 속담 퀴즈 + 복습")
 
+# 속담 데이터
 idioms = {
     "Break the ice": "긴장을 풀다, 분위기를 부드럽게 만들다",
     "Hit the books": "열심히 공부하다",
@@ -16,27 +17,37 @@ idioms = {
     "Kick the bucket": "죽다"
 }
 
-# 속담 랜덤 출력
-idiom, meaning = random.choice(list(idioms.items()))
-st.markdown(f"### 오늘의 속담: **{idiom}**")
-if st.checkbox("뜻 보기"):
-    st.markdown(f"**뜻:** {meaning}")
+# 틀린 문제를 저장할 세션 상태 초기화
+if "wrong_idioms" not in st.session_state:
+    st.session_state.wrong_idioms = {}
 
-# 퀴즈 시작
-st.markdown("---")
-st.header("속담 퀴즈")
+tabs = st.tabs(["퀴즈", "틀린 속담 복습"])
 
-quiz_idiom, quiz_meaning = random.choice(list(idioms.items()))
-options = list(idioms.values())
-random.shuffle(options)
+with tabs[0]:
+    st.header("속담 퀴즈")
 
-answer = st.radio(
-    f"'{quiz_idiom}'의 뜻은 무엇일까요?",
-    options
-)
+    quiz_idiom, quiz_meaning = random.choice(list(idioms.items()))
+    options = list(idioms.values())
+    random.shuffle(options)
 
-if st.button("정답 확인"):
-    if answer == quiz_meaning:
-        st.success("정답이에요! 🎉")
+    answer = st.radio(f"'{quiz_idiom}'의 뜻은 무엇일까요?", options)
+
+    if st.button("정답 확인"):
+        if answer == quiz_meaning:
+            st.success("정답이에요! 🎉")
+        else:
+            st.error(f"틀렸어요... 정답은 '{quiz_meaning}' 입니다.")
+            # 틀린 문제 세션 상태에 저장 (중복 저장 방지)
+            st.session_state.wrong_idioms[quiz_idiom] = quiz_meaning
+
+with tabs[1]:
+    st.header("틀린 속담 복습")
+
+    if st.session_state.wrong_idioms:
+        for idiom, meaning in st.session_state.wrong_idioms.items():
+            st.markdown(f"**{idiom}**: {meaning}")
+        if st.button("틀린 속담 초기화"):
+            st.session_state.wrong_idioms = {}
+            st.experimental_rerun()
     else:
-        st.error(f"틀렸어요... 정답은 '{quiz_meaning}' 입니다.")
+        st.write("아직 틀린 속담이 없습니다. 퀴즈를 풀어보세요!")
