@@ -20,11 +20,9 @@ if "wrong_idioms" not in st.session_state:
     st.session_state.wrong_idioms = {}
 
 if "current_question" not in st.session_state:
-    # 문제 하나 랜덤 선택
     question = random.choice(list(idioms.items()))
     correct_answer = question[1]
 
-    # 선지 생성 (정답 포함 4지선다 혹은 가능한 경우)
     options = [correct_answer]
     all_meanings = list(idioms.values())
     all_meanings.remove(correct_answer)
@@ -70,7 +68,8 @@ with tabs[0]:
             st.session_state.options = options
             st.session_state.answered = False
             st.session_state.selected_option = None
-            st.experimental_rerun()
+
+            st.experimental_rerun()  # 여기 꼭 버튼 내부에만!
 
 with tabs[1]:
     st.header("틀린 속담 복습")
