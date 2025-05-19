@@ -21,8 +21,19 @@ if "wrong_idioms" not in st.session_state:
 
 if "current_question" not in st.session_state:
     # 문제 하나 랜덤 선택
-    st.session_state.current_question = random.choice(list(idioms.items()))
-    st.session_state.answered = False  # 답변 여부
+    question = random.choice(list(idioms.items()))
+    correct_answer = question[1]
+
+    # 선지 생성 (정답 포함 4지선다 혹은 가능한 경우)
+    options = [correct_answer]
+    all_meanings = list(idioms.values())
+    all_meanings.remove(correct_answer)
+    options += random.sample(all_meanings, min(3, len(all_meanings)))
+    random.shuffle(options)
+
+    st.session_state.current_question = question
+    st.session_state.options = options
+    st.session_state.answered = False
     st.session_state.selected_option = None
 
 tabs = st.tabs(["퀴즈", "틀린 속담 복습"])
@@ -31,12 +42,9 @@ with tabs[0]:
     st.header("속담 퀴즈")
 
     idiom, correct_meaning = st.session_state.current_question
-
-    options = list(idioms.values())
-    random.shuffle(options)
+    options = st.session_state.options
 
     selected = st.radio(f"'{idiom}'의 뜻은 무엇일까요?", options, index=options.index(st.session_state.selected_option) if st.session_state.selected_option in options else 0)
-
     st.session_state.selected_option = selected
 
     if not st.session_state.answered:
@@ -48,9 +56,18 @@ with tabs[0]:
                 st.error(f"틀렸어요... 정답은 '{correct_meaning}' 입니다.")
                 st.session_state.wrong_idioms[idiom] = correct_meaning
     else:
-        # 정답 확인 후 다음 문제 버튼 보여주기
         if st.button("다음 문제"):
-            st.session_state.current_question = random.choice(list(idioms.items()))
+            question = random.choice(list(idioms.items()))
+            correct_answer = question[1]
+
+            options = [correct_answer]
+            all_meanings = list(idioms.values())
+            all_meanings.remove(correct_answer)
+            options += random.sample(all_meanings, min(3, len(all_meanings)))
+            random.shuffle(options)
+
+            st.session_state.current_question = question
+            st.session_state.options = options
             st.session_state.answered = False
             st.session_state.selected_option = None
             st.experimental_rerun()
