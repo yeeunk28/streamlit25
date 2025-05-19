@@ -1,4 +1,4 @@
 streamlit
 gtts
 pandas
-openai
+openai>=1.0.0
