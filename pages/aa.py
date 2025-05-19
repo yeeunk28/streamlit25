@@ -19,8 +19,21 @@ idioms = {
 if "wrong_idioms" not in st.session_state:
     st.session_state.wrong_idioms = {}
 
+if "asked_idioms" not in st.session_state:
+    st.session_state.asked_idioms = set()
+
 def new_question():
-    question = random.choice(list(idioms.items()))
+    # 아직 안 푼 문제 목록
+    remaining = [item for item in idioms.items() if item[0] not in st.session_state.asked_idioms]
+
+    if not remaining:
+        st.success("모든 문제를 다 풀었어요! 게임을 재시작해주세요.")
+        st.session_state.current_question = None
+        st.session_state.options = []
+        st.session_state.answered = True
+        return
+
+    question = random.choice(remaining)
     correct_answer = question[1]
 
     options = [correct_answer]
@@ -34,7 +47,9 @@ def new_question():
     st.session_state.answered = False
     st.session_state.selected_option = None
 
-if "current_question" not in st.session_state:
+    st.session_state.asked_idioms.add(question[0])
+
+if "current_question" not in st.session_state or st.session_state.current_question is None:
     new_question()
 
 tabs = st.tabs(["퀴즈", "틀린 속담 복습"])
@@ -42,29 +57,33 @@ tabs = st.tabs(["퀴즈", "틀린 속담 복습"])
 with tabs[0]:
     st.header("속담 퀴즈")
 
-    idiom, correct_meaning = st.session_state.current_question
-    options = st.session_state.options
-
-    selected = st.radio(f"'{idiom}'의 뜻은 무엇일까요?", options, index=options.index(st.session_state.selected_option) if st.session_state.selected_option in options else 0)
-    st.session_state.selected_option = selected
-
-    if not st.session_state.answered:
-        if st.button("정답 확인"):
-            st.session_state.answered = True
-            if selected == correct_meaning:
-                st.success("정답이에요! 🎉")
-            else:
-                st.error(f"틀렸어요... 정답은 '{correct_meaning}' 입니다.")
-                st.session_state.wrong_idioms[idiom] = correct_meaning
+    if st.session_state.current_question is None:
+        st.write("게임을 재시작 버튼을 눌러주세요.")
     else:
-        col1, col2 = st.columns(2)
+        idiom, correct_meaning = st.session_state.current_question
+        options = st.session_state.options
 
-        if col1.button("다음 문제"):
-            new_question()
+        selected = st.radio(f"'{idiom}'의 뜻은 무엇일까요?", options, index=options.index(st.session_state.selected_option) if st.session_state.selected_option in options else 0)
+        st.session_state.selected_option = selected
 
-        if col2.button("게임 재시작"):
-            st.session_state.wrong_idioms = {}
-            new_question()
+        if not st.session_state.answered:
+            if st.button("정답 확인"):
+                st.session_state.answered = True
+                if selected == correct_meaning:
+                    st.success("정답이에요! 🎉")
+                else:
+                    st.error(f"틀렸어요... 정답은 '{correct_meaning}' 입니다.")
+                    st.session_state.wrong_idioms[idiom] = correct_meaning
+        else:
+            col1, col2 = st.columns(2)
+
+            if col1.button("다음 문제"):
+                new_question()
+
+            if col2.button("게임 재시작"):
+                st.session_state.wrong_idioms = {}
+                st.session_state.asked_idioms = set()
+                new_question()
 
 with tabs[1]:
     st.header("틀린 속담 복습")
