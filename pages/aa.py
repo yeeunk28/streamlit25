@@ -3,6 +3,7 @@ import random
 
 st.title("📚 영어 속담 퀴즈 + 복습")
 
+# 문제 데이터
 idioms = {
     "Break the ice": "긴장을 풀다, 분위기를 부드럽게 만들다",
     "Hit the books": "열심히 공부하다",
@@ -16,10 +17,11 @@ idioms = {
     "Kick the bucket": "죽다"
 }
 
+# 세션 상태 초기화
 if "wrong_idioms" not in st.session_state:
     st.session_state.wrong_idioms = {}
 
-if "current_question" not in st.session_state:
+def new_question():
     question = random.choice(list(idioms.items()))
     correct_answer = question[1]
 
@@ -33,6 +35,10 @@ if "current_question" not in st.session_state:
     st.session_state.options = options
     st.session_state.answered = False
     st.session_state.selected_option = None
+
+# 처음 또는 리스타트 시 문제 생성
+if "current_question" not in st.session_state:
+    new_question()
 
 tabs = st.tabs(["퀴즈", "틀린 속담 복습"])
 
@@ -54,22 +60,18 @@ with tabs[0]:
                 st.error(f"틀렸어요... 정답은 '{correct_meaning}' 입니다.")
                 st.session_state.wrong_idioms[idiom] = correct_meaning
     else:
-        if st.button("다음 문제"):
-            question = random.choice(list(idioms.items()))
-            correct_answer = question[1]
+        col1, col2 = st.columns(2)
 
-            options = [correct_answer]
-            all_meanings = list(idioms.values())
-            all_meanings.remove(correct_answer)
-            options += random.sample(all_meanings, min(3, len(all_meanings)))
-            random.shuffle(options)
+        with col1:
+            if st.button("다음 문제"):
+                new_question()
+                st.experimental_rerun()
 
-            st.session_state.current_question = question
-            st.session_state.options = options
-            st.session_state.answered = False
-            st.session_state.selected_option = None
-
-            st.experimental_rerun()  # 여기 꼭 버튼 내부에만!
+        with col2:
+            if st.button("게임 재시작"):
+                st.session_state.wrong_idioms = {}
+                new_question()
+                st.experimental_rerun()
 
 with tabs[1]:
     st.header("틀린 속담 복습")
