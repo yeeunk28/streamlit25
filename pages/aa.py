@@ -1,9 +1,6 @@
 import gradio as gr
 from transformers import pipeline
 
-pip install gradio transformers
-python gradio_chatbot.py
-
 # 파이프라인 로드 (처음 로드 시 오래 걸릴 수 있음)
 chatbot = pipeline("conversational", model="facebook/blenderbot-400M-distill")
 
