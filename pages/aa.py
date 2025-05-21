@@ -1,97 +1,112 @@
 import streamlit as st
 import random
+from gtts import gTTS
+import tempfile
 
-st.title("속담 퀴즈 + 복습")
+# 문장 리스트
+sentences = [
+    ["Leo", "and", "his", "friends", "discovered", "a", "path", "leading", "to", "the", "Whispering", "Woods", ",", "known", "for", "the", "trees", "that", "could", "talk"],
+    ["The", "locals", "avoided", "it,", "saying", "it", "was", "bewitched", ",", "but", "the", "adventurous", "teens", "couldn’t", "resist", "exploring"],
+    ["As", "they", "walked", "deeper", "into", "the", "woods", ",", "the", "trees", "started", "whispering"],
+    ["Each", "tree", "told", "stories", "of", "ancient", "times", ",", "of", "battles", "fought", "and", "lovers", "separated"],
+    ["The", "trees", "also", "warned", "them", "about", "the", "dangers", "of", "forgetting", "the", "past", "and", "the", "importance", "of", "nature"],
+    ["Moved", "by", "these", "stories,", "the", "friends", "promised", "to", "protect", "the", "woods", "and", "share", "their", "knowledge"],
+    ["They", "left", "the", "woods", "wiser,", "with", "a", "deeper", "respect", "for", "nature", "and", "its", "untold", "stories", ",", "ready", "to", "advocate", "for", "its", "preservation"]
+]
 
-idioms = {
-    "Break the ice": "긴장을 풀다, 분위기를 부드럽게 만들다",
-    "Hit the books": "열심히 공부하다",
-    "Piece of cake": "아주 쉬운 일",
-    "Let the cat out of the bag": "비밀을 누설하다",
-    "Costs an arm and a leg": "엄청 비싸다",
-    "Once in a blue moon": "아주 드물게",
-    "Under the weather": "몸이 아픈",
-    "Bite the bullet": "이를 악물고 참다",
-    "Burn the midnight oil": "밤늦게까지 공부하거나 일하다",
-    "Kick the bucket": "죽다"
-}
+# 세션 상태 초기화
+if 'current_index' not in st.session_state:
+    st.session_state.current_index = 0
+if 'selected_words' not in st.session_state:
+    st.session_state.selected_words = []
+if 'quiz_started' not in st.session_state:
+    st.session_state.quiz_started = False
+if 'show_options' not in st.session_state:
+    st.session_state.show_options = False
 
-if "wrong_idioms" not in st.session_state:
-    st.session_state.wrong_idioms = {}
+# TTS 함수
+def play_tts():
+    current_sentence = ' '.join(sentences[st.session_state.current_index])
+    tts = gTTS(current_sentence)
 
-if "asked_idioms" not in st.session_state:
-    st.session_state.asked_idioms = set()
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp_file:
+        tts.save(tmp_file.name)
+        audio_file = open(tmp_file.name, "rb")
+        st.audio(audio_file.read(), format="audio/mp3")
+        audio_file.close()
 
-def new_question():
-    # 아직 안 푼 문제 목록
-    remaining = [item for item in idioms.items() if item[0] not in st.session_state.asked_idioms]
+# 퀴즈 시작
+def start_quiz():
+    st.session_state.quiz_started = True
+    st.session_state.current_index = 0
+    st.session_state.selected_words = []
+    st.session_state.show_options = False
+    play_tts()
 
-    if not remaining:
-        st.success("모든 문제를 다 풀었어요! 게임을 재시작해주세요.")
-        st.session_state.current_question = None
-        st.session_state.options = []
-        st.session_state.answered = True
-        return
+# 단어 선택
+def select_word(word_with_index):
+    word, index = word_with_index
+    st.session_state.selected_words.append((word, index))
 
-    question = random.choice(remaining)
-    correct_answer = question[1]
-
-    options = [correct_answer]
-    all_meanings = list(idioms.values())
-    all_meanings.remove(correct_answer)
-    options += random.sample(all_meanings, min(3, len(all_meanings)))
-    random.shuffle(options)
-
-    st.session_state.current_question = question
-    st.session_state.options = options
-    st.session_state.answered = False
-    st.session_state.selected_option = None
-
-    st.session_state.asked_idioms.add(question[0])
-
-if "current_question" not in st.session_state or st.session_state.current_question is None:
-    new_question()
-
-tabs = st.tabs(["퀴즈", "틀린 속담 복습"])
-
-with tabs[0]:
-    st.header("속담 퀴즈")
-
-    if st.session_state.current_question is None:
-        st.write("게임을 재시작 버튼을 눌러주세요.")
+# 정답 제출
+def submit_answer():
+    correct_sentence = sentences[st.session_state.current_index]
+    selected = [word for word, idx in st.session_state.selected_words]
+    if selected == correct_sentence:
+        st.success("Correct! 🎉")
+        st.session_state.show_options = True
     else:
-        idiom, correct_meaning = st.session_state.current_question
-        options = st.session_state.options
+        st.error("Incorrect. Try again!")
 
-        selected = st.radio(f"'{idiom}'의 뜻은 무엇일까요?", options, index=options.index(st.session_state.selected_option) if st.session_state.selected_option in options else 0)
-        st.session_state.selected_option = selected
+# 선택 초기화
+def clear_selection():
+    st.session_state.selected_words = []
 
-        if not st.session_state.answered:
-            if st.button("정답 확인"):
-                st.session_state.answered = True
-                if selected == correct_meaning:
-                    st.success("정답이에요! 🎉")
-                else:
-                    st.error(f"틀렸어요... 정답은 '{correct_meaning}' 입니다.")
-                    st.session_state.wrong_idioms[idiom] = correct_meaning
-        else:
-            col1, col2 = st.columns(2)
+# 재시도
+def retry():
+    clear_selection()
 
-            if col1.button("다음 문제"):
-                new_question()
-
-            if col2.button("게임 재시작"):
-                st.session_state.wrong_idioms = {}
-                st.session_state.asked_idioms = set()
-                new_question()
-
-with tabs[1]:
-    st.header("틀린 속담 복습")
-
-    if st.session_state.wrong_idioms:
-        for idiom, meaning in st.session_state.wrong_idioms.items():
-            st.markdown(f"**{idiom}**: {meaning}")
-        if st.button("틀린 속담 초기화"):
-            st.session_state.wrong_idioms = {}
+# 다음 문제
+def next_problem():
+    if st.session_state.current_index < len(sentences) - 1:
+        st.session_state.current_index += 1
+        st.session_state.selected_words = []
+        st.session_state.show_options = False
+        play_tts()
     else:
-        st.write("아직 틀린 속담이 없습니다. 퀴즈를 풀어보세요!")
+        st.balloons()
+        st.session_state.quiz_started = False
+
+# UI
+st.title("🗣️ Digital English Word Order Quiz")
+
+if not st.session_state.quiz_started:
+    st.button("🎬 Start Quiz", on_click=start_quiz)
+else:
+    correct_sentence = sentences[st.session_state.current_index]
+    shuffled_words = list(enumerate(correct_sentence))
+    random.shuffle(shuffled_words)
+
+    st.markdown("### 🔠 Arrange the words in the correct order by clicking:")
+
+    # 가로 정렬된 단어 버튼
+    max_columns = 6
+    for i in range(0, len(shuffled_words), max_columns):
+        row = st.columns(max_columns)
+        for j, (idx, word) in enumerate(shuffled_words[i:i + max_columns]):
+            if (word, idx) not in st.session_state.selected_words:
+                with row[j]:
+                    if st.button(word, key=f"{word}_{idx}"):
+                        select_word((word, idx))
+
+    # 선택된 문장
+    selected_display = ' '.join([word for word, idx in st.session_state.selected_words])
+    st.markdown("### ✍️ Your Answer:")
+    st.markdown(f"**{selected_display}**")
+
+    st.button("✅ Submit", on_click=submit_answer)
+    st.button("🗑️ Clear", on_click=clear_selection)
+
+    if st.session_state.show_options:
+        st.button("🔁 Retry", on_click=retry)
+        st.button("➡️ Next", on_click=next_problem)
